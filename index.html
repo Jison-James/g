@@ -1,0 +1,223 @@
+<!DOCTYPE HTML>
+<html lang="en">
+
+<head>
+    <title>Clumsy Bird</title>
+    <link rel="apple-touch-icon-precomposed" href="data/img/touch-icon-iphone.png" />
+    <link rel="apple-touch-icon-precomposed" sizes="120x120" href="data/img/touch-icon-iphone-retina.png" />
+    <link rel="shortcut icon" href="data/img/favicon.ico">
+    <link rel="stylesheet" type="text/css" media="screen" href="index.css">
+    <link rel="stylesheet" type="text/css" media="screen" href="admin.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <meta id="viewport" name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Clumsy Bird">
+    <meta charset="UTF-8" />
+    <meta name="description" content="Clumsy Bird - A Flappy Bird clone using MelonJS" />
+    <meta name="keywords" content="flappybird, flappy, bird, game, html5, melonjs,clone" />
+    <meta name="robots" content="index, follow">
+    <link rel="author" href="humans.txt" />
+</head>
+
+<body>
+    <!-- Canvas placeholder -->
+    <div id="screen"></div>
+
+    <!-- Admin Gear Button -->
+    <button id="admin-btn" title="Admin Panel">&#9881;</button>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="admin-overlay">
+        <div class="admin-card">
+            <h2>&#128274; Admin Login</h2>
+            <p class="subtitle">Enter your credentials to access the admin panel</p>
+            <form id="login-form" autocomplete="off">
+                <input id="login-user" class="login-input" type="text" placeholder="Username" required>
+                <input id="login-pass" class="login-input" type="password" placeholder="Password" required>
+                <div id="login-error" class="login-error"></div>
+                <button type="submit" class="login-btn">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Panel -->
+    <div id="admin-panel" class="admin-overlay">
+        <div class="admin-card admin-card-scroll">
+            <div class="panel-header">
+                <div>
+                    <h2>&#127918; Admin Panel</h2>
+                    <p class="panel-subtitle">Customize the game bird and sounds</p>
+                </div>
+                <button id="logout-btn" class="logout-btn">Logout</button>
+            </div>
+
+            <!-- ===== SPRITE UPLOAD SECTION ===== -->
+            <div class="admin-section">
+                <h3>&#128247; Sprite / Sticker Image</h3>
+                <p class="section-desc">Upload an image (sticker, face, GIF frame). Drag on the canvas to crop. The
+                    image is shown as-is — no circle mask.</p>
+                <span id="face-status" class="status-badge inactive">&#9679; Using default bird</span>
+
+                <div class="file-row">
+                    <label>Image:</label>
+                    <div class="file-input-wrap">
+                        <input id="face-file" type="file" accept="image/*">
+                    </div>
+                </div>
+                <img id="face-preview" class="face-preview" style="display:none;" alt="Saved sprite">
+
+                <!-- Canvas Crop Editor -->
+                <div id="crop-editor-section" style="display:none;">
+                    <div class="controls-group">
+                        <h4>&#9986; Drag to Crop</h4>
+                        <p style="font-size:12px;color:#888;margin:0 0 10px;">Click and drag on the image to select the
+                            region you want. The bright area is your selection.</p>
+                        <canvas id="crop-canvas"
+                            style="display:none;cursor:crosshair;border:2px solid rgba(255,255,255,0.1);border-radius:8px;max-width:100%;"></canvas>
+                        <div style="margin-top:8px;">
+                            <button id="crop-select-all" class="btn-small">Select All</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sprite Size Controls -->
+                <div class="controls-group">
+                    <h4>&#128208; Sprite Size</h4>
+                    <div class="slider-row">
+                        <label>Width:</label>
+                        <input id="sprite-width" type="range" min="40" max="200" value="85" class="admin-slider">
+                        <span id="size-w-val" class="slider-val">85px</span>
+                    </div>
+                    <div class="slider-row">
+                        <label>Height:</label>
+                        <input id="sprite-height" type="range" min="30" max="150" value="60" class="admin-slider">
+                        <span id="size-h-val" class="slider-val">60px</span>
+                    </div>
+                </div>
+
+                <!-- Sprite Preview -->
+                <div style="text-align:center; margin-top:10px;">
+                    <p style="font-size:12px; color:#888; margin-bottom:6px;">Sprite Preview:</p>
+                    <canvas id="sprite-preview-canvas"
+                        style="display:none; margin:0 auto; border:2px solid rgba(255,255,255,0.15); border-radius:6px; background:rgba(0,0,0,0.3);"></canvas>
+                </div>
+
+                <div class="btn-row">
+                    <button id="face-save-btn" class="btn-save">&#128190; Save Sprite</button>
+                    <button id="face-clear-btn" class="btn-clear">&#10006; Clear</button>
+                </div>
+            </div>
+
+            <!-- ===== VOICE UPLOAD SECTION ===== -->
+            <div class="admin-section">
+                <h3>&#127908; Custom Sounds</h3>
+                <p class="section-desc">Add multiple audio files per event. They play sequentially and loop. Use the ✂
+                    button to trim.</p>
+
+                <!-- Flap Sound -->
+                <div class="sound-section">
+                    <strong style="color:#a78bfa;">Flap Sound</strong>
+                    <span style="color:#666;font-size:12px;"> &mdash; plays when spacebar is pressed</span>
+                    <span id="wing-status" class="status-badge inactive" style="display:block;margin-top:6px;">&#9679;
+                        Using default Flap sound</span>
+                    <div id="wing-list" class="sound-list"></div>
+                    <div class="file-row">
+                        <label>Audio:</label>
+                        <div class="file-input-wrap">
+                            <input id="wing-file" type="file" accept="audio/*" multiple>
+                        </div>
+                    </div>
+                    <div class="btn-row">
+                        <button id="wing-save-btn" class="btn-save">&#128190; Save Sound(s)</button>
+                        <button id="wing-clear-btn" class="btn-clear">&#10006; Clear All</button>
+                    </div>
+                </div>
+
+                <!-- Hit Sound -->
+                <div class="sound-section">
+                    <strong style="color:#60a5fa;">Hit Sound</strong>
+                    <span style="color:#666;font-size:12px;"> &mdash; plays when passing through obstacles</span>
+                    <span id="hit-status" class="status-badge inactive" style="display:block;margin-top:6px;">&#9679;
+                        Using default Hit sound</span>
+                    <div id="hit-list" class="sound-list"></div>
+                    <div class="file-row">
+                        <label>Audio:</label>
+                        <div class="file-input-wrap">
+                            <input id="hit-file" type="file" accept="audio/*" multiple>
+                        </div>
+                    </div>
+                    <div class="btn-row">
+                        <button id="hit-save-btn" class="btn-save">&#128190; Save Sound(s)</button>
+                        <button id="hit-clear-btn" class="btn-clear">&#10006; Clear All</button>
+                    </div>
+                </div>
+
+                <!-- Fail/Lose Sound -->
+                <div class="sound-section">
+                    <strong style="color:#f87171;">Fail Sound</strong>
+                    <span style="color:#666;font-size:12px;"> &mdash; plays when the bird crashes</span>
+                    <span id="lose-status" class="status-badge inactive" style="display:block;margin-top:6px;">&#9679;
+                        Using default Fail sound</span>
+                    <div id="lose-list" class="sound-list"></div>
+                    <div class="file-row">
+                        <label>Audio:</label>
+                        <div class="file-input-wrap">
+                            <input id="lose-file" type="file" accept="audio/*" multiple>
+                        </div>
+                    </div>
+                    <div class="btn-row">
+                        <button id="lose-save-btn" class="btn-save">&#128190; Save Sound(s)</button>
+                        <button id="lose-clear-btn" class="btn-clear">&#10006; Clear All</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio Trim Modal -->
+    <div id="trim-modal" class="admin-overlay">
+        <div class="admin-card trim-card">
+            <h2>&#9986; Trim Audio</h2>
+            <p class="subtitle">Adjust start and end points. Preview before saving.</p>
+
+            <canvas id="waveform-canvas" width="460" height="100"
+                style="width:100%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);"></canvas>
+            <p id="trim-duration" style="text-align:center;font-size:12px;color:#60a5fa;margin:8px 0;"></p>
+
+            <div class="slider-row">
+                <label>Start:</label>
+                <input id="trim-start" type="range" min="0" max="99" value="0" class="admin-slider trim-slider-start">
+                <span id="trim-start-val" class="slider-val">0%</span>
+            </div>
+            <div class="slider-row">
+                <label>End:</label>
+                <input id="trim-end" type="range" min="1" max="100" value="100" class="admin-slider trim-slider-end">
+                <span id="trim-end-val" class="slider-val">100%</span>
+            </div>
+
+            <div class="btn-row" style="margin-top:16px;">
+                <button id="trim-preview-btn" class="btn-small" style="flex:1;">&#9654; Preview</button>
+                <button id="trim-save-btn" class="btn-save" style="flex:1;">&#128190; Save Trimmed</button>
+                <button id="trim-cancel-btn" class="btn-clear" style="flex:1;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="admin-toast" class="admin-toast"></div>
+
+    <!-- melonJS Library -->
+    <script type="text/javascript" src="js/melonJS-min.js"></script>
+    <script type="text/javascript" src="build/clumsy-min.js"></script>
+    <script type="text/javascript">
+        window.onReady(function onReady() {
+            game.onload();
+        });
+    </script>
+
+</body>
+
+</html>
