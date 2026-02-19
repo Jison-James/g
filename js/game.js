@@ -11,6 +11,10 @@ var game = {
             hit: { list: [], idx: 0 },
             lose: { list: [], idx: 0 }
         },
+        // Queue system for audio
+        audioQueue: [],
+        isAudioPlaying: false,
+
         // Custom sprite size
         customSpriteSize: null  // {w, h} or null
     },
@@ -37,25 +41,125 @@ var game = {
     ],
 
     /**
-     * Play a sound — uses custom audio list (sequential, looping) if available,
-     * otherwise falls back to melonJS audio.
+     * Play a sound — queues the sound to play sequentially with priority.
      */
     playSound: function (name) {
+        var priority = game.data.audioPriority[name] || game.data.audioPriority.default;
+
+        // Priority Logic:
+        // If high priority (hit/lose), clear pending lower priority sounds (wing)
+        if (priority > 1) {
+            // Filter out sounds with lower priority from the queue
+            game.data.audioQueue = game.data.audioQueue.filter(function (pendingName) {
+                var pendingPriority = game.data.audioPriority[pendingName] || game.data.audioPriority.default;
+                return pendingPriority >= priority;
+            });
+
+            // Interruption Logic:
+            // If currently playing sound is lower priority, stop it immediately
+            if (game.data.isAudioPlaying && game.data.currentAudioInstance && priority > game.data.currentPriority) {
+                console.log('[playSound] Interrupting ' + game.data.currentPriority + ' for ' + priority);
+                try {
+                    game.data.currentAudioInstance.pause();
+                    game.data.currentAudioInstance.currentTime = 0;
+                } catch (e) { console.error(e); }
+                game.data.isAudioPlaying = false; // Reset to allow immediate processing
+            }
+        }
+
+        // Special case for 'wing' (priority 1):
+        // If there is already a 'wing' in the queue, do not add another one.
+        // This prevents the queue from getting clogged with rapid flapping.
+        if (name === 'wing') {
+            var wingCount = 0;
+            for (var i = 0; i < game.data.audioQueue.length; i++) {
+                if (game.data.audioQueue[i] === 'wing') {
+                    wingCount++;
+                }
+            }
+            if (wingCount >= 1) {
+                return; // Skip adding this sound
+            }
+        }
+
+        game.data.audioQueue.push(name);
+        game.processAudioQueue();
+    },
+
+    /**
+     * Process the audio queue and play sounds one by one.
+     */
+    processAudioQueue: function () {
+        // If audio is currently playing or queue is empty, do nothing
+        if (game.data.isAudioPlaying || game.data.audioQueue.length === 0) {
+            return;
+        }
+
+        // Get the next sound from the queue
+        var name = game.data.audioQueue.shift();
         var channel = game.data.customAudio[name];
+        var priority = game.data.audioPriority[name] || game.data.audioPriority.default;
+
         if (channel && channel.list.length > 0) {
             console.log('[playSound] Playing custom sound "' + name + '" index ' + channel.idx + '/' + channel.list.length);
+
+            // Mark as playing
+            game.data.isAudioPlaying = true;
+            game.data.currentPriority = priority;
+
             var audio = channel.list[channel.idx];
             var clone = audio.cloneNode();
             clone.volume = audio.volume;
+            game.data.currentAudioInstance = clone;
+
+            // When sound finishes, play the next one after a delay
+            clone.onended = function () {
+                game.data.isAudioPlaying = false;
+                game.data.currentAudioInstance = null;
+                game.data.currentPriority = 0;
+
+                // Delay Logic:
+                // If it was a high priority sound (hit/lose), add a 2000ms delay.
+                // If it was 'wing', no delay (0ms) to keep game responsive.
+                var gap = 0;
+                if (name === 'hit' || name === 'lose') {
+                    gap = 2000;
+                }
+
+                if (gap > 0) {
+                    console.log('[processAudioQueue] Waiting ' + gap + 'ms after ' + name);
+                    setTimeout(game.processAudioQueue, gap);
+                } else {
+                    game.processAudioQueue();
+                }
+            };
+
+            clone.onerror = function (e) {
+                console.error('[playSound] Error playing "' + name + '"', e);
+                game.data.isAudioPlaying = false;
+                game.data.currentAudioInstance = null;
+                game.processAudioQueue();
+            };
+
             clone.play().then(function () {
                 console.log('[playSound] Custom sound "' + name + '" started playing');
             }).catch(function (e) {
                 console.error('[playSound] Failed to play custom sound "' + name + '":', e);
+                game.data.isAudioPlaying = false;
+                game.data.currentAudioInstance = null;
+                game.processAudioQueue();
             });
+
+            // Advance index for next time (round-robin)
             channel.idx = (channel.idx + 1) % channel.list.length;
+
         } else {
             console.log('[playSound] Using default melonJS sound for "' + name + '"');
             me.audio.play(name);
+            // Default audio doesn't block queue (fire and forget)
+            // But we recursive call to process next item immediately? 
+            // Treating as instant:
+            game.processAudioQueue();
         }
     },
 
